@@ -8,16 +8,10 @@ raylib-src/
 # Si decides que el script tambien descargue raylib-web, puedes descomentar la linea de abajo:
 # raylib-web/
 
-# Archivos compilados de WebAssembly (Se autogeneran con npm run build)
+# Archivos compilados de WebAssembly en el directorio raiz (Se autogeneran con npm run build)
 juego.wasm
 juego.js
 juego.data
-ejemplo_vanilla/juego.wasm
-ejemplo_vanilla/juego.js
-ejemplo_vanilla/juego.data
-ejemplo_react/public/juego.wasm
-ejemplo_react/public/juego.js
-ejemplo_react/public/juego.data
 
 # Archivos de build y ejecutables locales (Windows/Dev-C++)
 *.o
