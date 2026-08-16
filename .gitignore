@@ -9,9 +9,9 @@ raylib-src/
 # raylib-web/
 
 # Archivos compilados de WebAssembly en el directorio raiz (Se autogeneran con npm run build)
-juego.wasm
-juego.js
-juego.data
+/juego.wasm
+/juego.js
+/juego.data
 
 # Archivos de build y ejecutables locales (Windows/Dev-C++)
 *.o
