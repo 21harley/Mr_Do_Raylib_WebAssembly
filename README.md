@@ -86,3 +86,16 @@ npm run start:vanilla
 # O si prefieres React:
 npm run start:react
 ```
+
+---
+
+## 🛠️ ¿Deseas crear un juego nuevo desde cero? (Plantilla)
+
+Este repositorio contiene una rama especial y aislada llamada **`new_project`**, la cual ha sido completamente vaciada de la lógica, físicas, y arte (sprites/música) del juego "Mr. Do!". 
+
+Si deseas utilizar nuestra arquitectura web (integración con Node.js, `compilar_wasm.bat`, y entornos React/Vanilla JS) para **crear un juego nativo nuevo con Raylib**, simplemente muévete a esa rama. Obtendrás un *Boilerplate* puro (un "Hola Mundo" listo para renderizar en WebAssembly).
+
+Para acceder a la plantilla base:
+```bash
+git checkout new_project
+```
