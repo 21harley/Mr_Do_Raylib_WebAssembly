@@ -1,5 +1,9 @@
 # Mr. Do! - Proyecto Raylib a WebAssembly (WASM)
 
+<div align="center">
+  <img src="doc/img/Gemini_Generated_Image_ojq928ojq928ojq9.jpg" alt="Mr. Do! Banner">
+</div>
+
 Este proyecto contiene el código fuente, los recursos y la infraestructura necesaria para compilar el clásico juego "Mr. Do" (desarrollado originalmente en C para Windows/PC) hacia la web usando Raylib y Emscripten.
 
 ## Estructura del Proyecto
