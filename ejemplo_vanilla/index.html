@@ -75,6 +75,11 @@
 </head>
 <body>
     <div id="game-container">
+        <div id="mobile-warning" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #1a1a1a; flex-direction: column; justify-content: center; align-items: center; z-index: 200; text-align: center; padding: 20px; box-sizing: border-box;">
+            <h2 style="color: #e74c3c;">Dispositivo Móvil Detectado</h2>
+            <p style="font-size: 1.2rem; line-height: 1.5; color: #ccc;">Lo sentimos, este juego requiere teclado y no está optimizado para dispositivos táctiles.<br><br>Por favor, ingresa desde una PC.</p>
+        </div>
+
         <div id="loading">Cargando Motor WebAssembly...</div>
         
         <div id="start-overlay">
@@ -88,35 +93,43 @@
 
     <!-- Paso 04: Objeto de Módulo (Module) -->
     <script>
-        var Module = { 
-            canvas: document.getElementById('canvas'),
-            onRuntimeInitialized: function() {
-                // Solución al bug de Raylib Web Audio: 
-                // Exponer HEAPF32 global dentro de Module para que la API de audio lo encuentre
-                if (typeof HEAPF32 !== 'undefined') Module.HEAPF32 = HEAPF32;
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768;
 
-                // Ocultar mensaje de carga cuando el motor esté completamente cargado
-                document.getElementById('loading').style.display = 'none';
-                console.log("Motor Raylib/WASM cargado correctamente.");
-            },
-            print: (function() {
-                return function(text) { console.log(text); };
-            })(),
-            printErr: function(text) { console.error(text); }
-        };
-        
-        // Botón de activación de sonido
-        document.getElementById('start-btn').addEventListener('click', function() {
+        if (isMobile) {
+            document.getElementById('mobile-warning').style.display = 'flex';
             document.getElementById('start-overlay').style.display = 'none';
-            // Enfocar el canvas para que reciba las entradas de teclado inmediatamente
-            document.getElementById('canvas').focus();
-            console.log("Interacción de usuario detectada. Iniciando descarga del motor WASM...");
+            document.getElementById('loading').style.display = 'none';
+        } else {
+            var Module = { 
+                canvas: document.getElementById('canvas'),
+                onRuntimeInitialized: function() {
+                    // Solución al bug de Raylib Web Audio: 
+                    // Exponer HEAPF32 global dentro de Module para que la API de audio lo encuentre
+                    if (typeof HEAPF32 !== 'undefined') Module.HEAPF32 = HEAPF32;
+
+                    // Ocultar mensaje de carga cuando el motor esté completamente cargado
+                    document.getElementById('loading').style.display = 'none';
+                    console.log("Motor Raylib/WASM cargado correctamente.");
+                },
+                print: (function() {
+                    return function(text) { console.log(text); };
+                })(),
+                printErr: function(text) { console.error(text); }
+            };
             
-            // Cargar el script del juego dinámicamente ahora que tenemos interacción
-            var script = document.createElement('script');
-            script.src = 'juego.js';
-            document.body.appendChild(script);
-        }, { once: true });
+            // Botón de activación de sonido
+            document.getElementById('start-btn').addEventListener('click', function() {
+                document.getElementById('start-overlay').style.display = 'none';
+                // Enfocar el canvas para que reciba las entradas de teclado inmediatamente
+                document.getElementById('canvas').focus();
+                console.log("Interacción de usuario detectada. Iniciando descarga del motor WASM...");
+                
+                // Cargar el script del juego dinámicamente ahora que tenemos interacción
+                var script = document.createElement('script');
+                script.src = 'juego.js';
+                document.body.appendChild(script);
+            }, { once: true });
+        }
     </script>
 </body>
 </html>
