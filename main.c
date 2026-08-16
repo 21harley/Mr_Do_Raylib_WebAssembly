@@ -316,6 +316,7 @@ int main(void) {
     const int anchopantalla = 800;
     const int altopantalla = 450;
     
+    SetTraceLogLevel(LOG_NONE); // Deshabilitar logs de Raylib para limpiar la consola y mejorar el rendimiento
     InitWindow(anchopantalla, altopantalla, "Juego Dr. OH / Mr. Do");
     InitAudioDevice();
     SetTargetFPS(60);
@@ -442,11 +443,15 @@ int main(void) {
                 if (IsKeyPressed(KEY_P)) {
                     pantalla = pantalla_pausa;
                 } else {
+                    estadopantalla pantalla_anterior = pantalla;
                     ActualizarJuego(&juego, &pantalla, &sonidos, &cfg);
                     if (juego.jugador.score > max_score) {
                         max_score = juego.jugador.score;
                         strncpy(max_nombre, juego.jugador.nombre, 15);
                         max_nombre[15] = '\0';
+                    }
+                    // Solo guardamos el record en disco al terminar la partida para evitar lag
+                    if (pantalla != pantalla_anterior && (pantalla == pantalla_gameover || pantalla == pantalla_victoria_final)) {
                         GuardarRecord(max_score, max_nombre);
                     }
                 }
