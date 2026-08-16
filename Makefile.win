@@ -1,0 +1,28 @@
+# Project: Proyecto1
+# Makefile created by Dev-C++ 5.11
+
+CPP      = g++.exe
+CC       = gcc.exe
+WINDRES  = windres.exe
+OBJ      = main.o
+LINKOBJ  = main.o
+LIBS     = -L"C:/raylib/w64devkit/lib" -static-libstdc++ -static-libgcc -lraylib -lopengl32 -lgdi32 -lwinmm ../../../../../../raylib/w64devkit/lib/libraylib.a
+INCS     = -I"C:/raylib/w64devkit/include" -I"C:/raylib/w64devkit/lib/gcc/x86_64-w64-mingw32/15.2.0/include"
+CXXINCS  = -I"C:/raylib/w64devkit/include" -I"C:/raylib/w64devkit/lib/gcc/x86_64-w64-mingw32/15.2.0/include" -I"C:/raylib/w64devkit/lib/gcc/x86_64-w64-mingw32/15.2.0/include/c++"
+BIN      = Proyecto1.exe
+CXXFLAGS = $(CXXINCS) 
+CFLAGS   = $(INCS) 
+RM       = rm.exe -f
+
+.PHONY: all all-before all-after clean clean-custom
+
+all: all-before $(BIN) all-after
+
+clean: clean-custom
+	${RM} $(OBJ) $(BIN)
+
+$(BIN): $(OBJ)
+	$(CC) $(LINKOBJ) -o $(BIN) $(LIBS)
+
+main.o: main.c
+	$(CC) -c main.c -o main.o $(CFLAGS)

@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pipeline WebAssembly (Raylib)</title>
+    <style>
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            background-color: #1a1a1a; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh; 
+            color: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        #game-container {
+            position: relative;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            border-radius: 8px;
+            overflow: hidden;
+            background-color: #000;
+        }
+        canvas { 
+            display: block;
+            outline: none;
+        }
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 1.2rem;
+            pointer-events: none;
+            z-index: 5;
+        }
+        #start-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+        .start-text {
+            margin-bottom: 20px;
+            font-size: 1.2rem;
+            text-align: center;
+            color: #ccc;
+            line-height: 1.5;
+        }
+        #start-btn {
+            background-color: #f39c12;
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 5px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.3s, transform 0.2s;
+        }
+        #start-btn:hover {
+            background-color: #e67e22;
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="loading">Cargando Motor WebAssembly...</div>
+        
+        <div id="start-overlay">
+            <div class="start-text">Para escuchar los efectos y la música del juego,<br>el navegador requiere tu permiso.</div>
+            <button id="start-btn">Activar Sonido y Jugar</button>
+        </div>
+
+        <!-- Paso 03: Contenedor HTML5 -->
+        <canvas id="canvas" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
+    </div>
+
+    <!-- Paso 04: Objeto de Módulo (Module) -->
+    <script>
+        var Module = { 
+            canvas: document.getElementById('canvas'),
+            onRuntimeInitialized: function() {
+                // Solución al bug de Raylib Web Audio: 
+                // Exponer HEAPF32 global dentro de Module para que la API de audio lo encuentre
+                if (typeof HEAPF32 !== 'undefined') Module.HEAPF32 = HEAPF32;
+
+                // Ocultar mensaje de carga cuando el motor esté completamente cargado
+                document.getElementById('loading').style.display = 'none';
+                console.log("Motor Raylib/WASM cargado correctamente.");
+            },
+            print: (function() {
+                return function(text) { console.log(text); };
+            })(),
+            printErr: function(text) { console.error(text); }
+        };
+        
+        // Botón de activación de sonido
+        document.getElementById('start-btn').addEventListener('click', function() {
+            document.getElementById('start-overlay').style.display = 'none';
+            // Enfocar el canvas para que reciba las entradas de teclado inmediatamente
+            document.getElementById('canvas').focus();
+            console.log("Interacción de usuario detectada. Iniciando descarga del motor WASM...");
+            
+            // Cargar el script del juego dinámicamente ahora que tenemos interacción
+            var script = document.createElement('script');
+            script.src = 'juego.js';
+            document.body.appendChild(script);
+        }, { once: true });
+    </script>
+</body>
+</html>

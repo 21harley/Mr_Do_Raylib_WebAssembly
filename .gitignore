@@ -1,0 +1,31 @@
+# Entorno Node.js
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# Dependencias C/C++ de Raylib (Descargadas por npm run setup)
+raylib-src/
+# Si decides que el script tambien descargue raylib-web, puedes descomentar la linea de abajo:
+# raylib-web/
+
+# Archivos compilados de WebAssembly (Se autogeneran con npm run build)
+juego.wasm
+juego.js
+juego.data
+ejemplo_vanilla/juego.wasm
+ejemplo_vanilla/juego.js
+ejemplo_vanilla/juego.data
+ejemplo_react/public/juego.wasm
+ejemplo_react/public/juego.js
+ejemplo_react/public/juego.data
+
+# Archivos de build y ejecutables locales (Windows/Dev-C++)
+*.o
+*.exe
+*.log
+*.sqlite
+.vscode/
+
+# Basura del sistema operativo
+.DS_Store
+Thumbs.db

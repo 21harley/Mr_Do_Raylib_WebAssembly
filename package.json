@@ -1,0 +1,13 @@
+{
+  "name": "mrdo-raylib-wasm",
+  "version": "1.0.0",
+  "description": "Mr. Do! compilado a WebAssembly usando Raylib y Emscripten",
+  "scripts": {
+    "setup": "node scripts/install_deps.js",
+    "build": "compilar_wasm.bat",
+    "start:vanilla": "cd ejemplo_vanilla && python -m http.server 8080",
+    "start:react": "cd ejemplo_react && npm install && npm run dev"
+  },
+  "author": "",
+  "license": "ISC"
+}
