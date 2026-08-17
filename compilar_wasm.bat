@@ -37,6 +37,7 @@ call emcc main.c -o juego.js -O3 ^
     -L raylib-web/lib ^
     -lraylib ^
     -s USE_GLFW=3 ^
+    -s ASYNCIFY ^
     -s FORCE_FILESYSTEM=1 ^
     -s ALLOW_MEMORY_GROWTH=1 ^
     -s INITIAL_MEMORY=134217728 ^
