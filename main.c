@@ -6,6 +6,10 @@
 #include <time.h>
 #include "raylib.h"
 
+#ifdef PLATFORM_WEB
+    #include <emscripten/emscripten.h>
+#endif
+
 #define FILAS 9
 #define COLUMNAS 16
 #define TAM_CELDA 40
@@ -312,6 +316,299 @@ void GenerarElementosAleatoriosAleatorio(EstadoJuego *j) {
     }
 }
 
+// =============================================================================
+// VARIABLES GLOBALES DEL LOOP PRINCIPAL
+// Necesario para que GameFrame() acceda a ellas sin ASYNCIFY.
+// Protegido por PLATFORM_WEB para no afectar la build nativa de Windows.
+// =============================================================================
+#ifdef PLATFORM_WEB
+static sonidos_juego g_sonidos;
+static texturas_juego g_tex;
+static EstadoJuego g_juego;
+static Configuracion g_cfg;
+static estadopantalla g_pantalla;
+static float g_tiempo;
+static int g_opcionMenu;
+static int g_opcionConfig;
+static char g_max_nombre[16];
+static int g_max_score;
+static bool g_debe_cerrar;
+static int g_letterCount;
+static const int g_anchopantalla = 800;
+static const int g_altopantalla = 450;
+
+// Un frame del juego — llamado por emscripten_set_main_loop() sin ASYNCIFY
+void GameFrame(void) {
+    if (g_debe_cerrar) return;
+
+    if (g_sonidos.audioValido && IsMusicReady(g_sonidos.menu)) {
+        if (g_pantalla == pantalla_menu || g_pantalla == pantalla_config || g_pantalla == pantalla_stats || g_pantalla == pantalla_creditos || g_pantalla == pantalla_controles) {
+            if (!IsMusicStreamPlaying(g_sonidos.menu)) PlayMusicStream(g_sonidos.menu);
+            UpdateMusicStream(g_sonidos.menu);
+        } else {
+            if (IsMusicStreamPlaying(g_sonidos.menu)) StopMusicStream(g_sonidos.menu);
+        }
+    }
+
+    switch (g_pantalla) {
+        case pantalla_intro:
+            g_tiempo += GetFrameTime();
+            if (g_tiempo >= 2.5f) g_pantalla = pantalla_menu;
+            break;
+
+        case pantalla_menu:
+            if (IsKeyPressed(KEY_DOWN)) { 
+                g_opcionMenu = (g_opcionMenu + 1) % 6; 
+                if (IsSoundReady(g_sonidos.item)) PlaySound(g_sonidos.item); 
+            }
+            if (IsKeyPressed(KEY_UP)) { 
+                g_opcionMenu = (g_opcionMenu - 1 + 6) % 6; 
+                if (IsSoundReady(g_sonidos.item)) PlaySound(g_sonidos.item); 
+            }
+            if (IsKeyPressed(KEY_ENTER)) {
+                if (IsSoundReady(g_sonidos.dinero)) PlaySound(g_sonidos.dinero);
+                if (g_opcionMenu == 0) { g_pantalla = pantalla_registro; g_letterCount = 0; g_juego.jugador.nombre[0] = '\0'; }
+                if (g_opcionMenu == 1) { g_pantalla = pantalla_config; g_opcionConfig = 0; }
+                if (g_opcionMenu == 2) g_pantalla = pantalla_stats;
+                if (g_opcionMenu == 3) g_pantalla = pantalla_controles;
+                if (g_opcionMenu == 4) g_pantalla = pantalla_creditos;
+                if (g_opcionMenu == 5) g_pantalla = pantalla_salir;
+            }
+            break;
+
+        case pantalla_config:
+            if (IsKeyPressed(KEY_DOWN)) { 
+                g_opcionConfig = (g_opcionConfig + 1) % 3; 
+                if (IsSoundReady(g_sonidos.item)) PlaySound(g_sonidos.item); 
+            }
+            if (IsKeyPressed(KEY_UP)) { 
+                g_opcionConfig = (g_opcionConfig - 1 + 3) % 3; 
+                if (IsSoundReady(g_sonidos.item)) PlaySound(g_sonidos.item); 
+            }
+            if (IsKeyPressed(KEY_LEFT) || IsKeyPressed(KEY_RIGHT)) {
+                if (g_opcionConfig == 0) g_cfg.idioma = (g_cfg.idioma == IDIOMA_ES) ? IDIOMA_EN : IDIOMA_ES;
+                if (g_opcionConfig == 1) g_cfg.modo = (g_cfg.modo == MODO_ALEATORIO) ? MODO_HISTORIA : MODO_ALEATORIO;
+                if (IsSoundReady(g_sonidos.item)) PlaySound(g_sonidos.item); 
+            }
+            if (IsKeyPressed(KEY_ENTER) && g_opcionConfig == 2) {
+                if (IsSoundReady(g_sonidos.dinero)) PlaySound(g_sonidos.dinero);
+                g_pantalla = pantalla_menu;
+            }
+            break;
+
+        case pantalla_registro: {
+            int key = GetCharPressed();
+            while (key > 0) {
+                if ((key >= 32) && (key <= 125) && (g_letterCount < 15)) {
+                    g_juego.jugador.nombre[g_letterCount] = (char)key;
+                    g_juego.jugador.nombre[g_letterCount + 1] = '\0';
+                    g_letterCount++;
+                }
+                key = GetCharPressed();
+            }
+            if (IsKeyPressed(KEY_BACKSPACE)) {
+                g_letterCount--;
+                if (g_letterCount < 0) g_letterCount = 0;
+                g_juego.jugador.nombre[g_letterCount] = '\0';
+            }
+            if (IsKeyPressed(KEY_ENTER) && g_letterCount > 0) {
+                g_pantalla = pantalla_instrucciones;
+            }
+            break;
+        }
+
+        case pantalla_instrucciones:
+            if (IsKeyPressed(KEY_ENTER)) {
+                g_juego.jugador.vidas = 3;
+                g_juego.jugador.score = 0;
+                g_juego.jugador.timerMov = 0.0f;
+                IniciarNivel(&g_juego, 1, g_cfg.modo);
+                g_pantalla = pantalla_juego;
+            }
+            break;
+
+        case pantalla_juego:
+            if (IsKeyPressed(KEY_P)) {
+                g_pantalla = pantalla_pausa;
+            } else {
+                estadopantalla pantalla_anterior = g_pantalla;
+                ActualizarJuego(&g_juego, &g_pantalla, &g_sonidos, &g_cfg);
+                if (g_juego.jugador.score > g_max_score) {
+                    g_max_score = g_juego.jugador.score;
+                    strncpy(g_max_nombre, g_juego.jugador.nombre, 15);
+                    g_max_nombre[15] = '\0';
+                }
+                if (g_pantalla != pantalla_anterior && (g_pantalla == pantalla_gameover || g_pantalla == pantalla_victoria_final)) {
+                    GuardarRecord(g_max_score, g_max_nombre);
+                }
+            }
+            break;
+
+        case pantalla_pausa:
+            if (IsKeyPressed(KEY_P) || IsKeyPressed(KEY_ENTER)) {
+                g_pantalla = pantalla_juego;
+            }
+            break;
+
+        case pantalla_stats:
+        case pantalla_creditos:
+        case pantalla_controles:
+        case pantalla_gameover:
+        case pantalla_victoria_final:
+            if (IsKeyPressed(KEY_ENTER)) g_pantalla = pantalla_menu;
+            break;
+
+        case pantalla_salir:
+            if (IsKeyPressed(KEY_S)) g_pantalla = pantalla_menu;
+            if (IsKeyPressed(KEY_N)) g_debe_cerrar = true;
+            break;
+    }
+
+    BeginDrawing();
+        ClearBackground(BLACK);
+
+        switch (g_pantalla) {
+            case pantalla_intro:
+                DrawText("DR. OH / MR. DO", 260, 160, 36, YELLOW);
+                DrawText((g_cfg.idioma == IDIOMA_ES) ? "Cargando matriz..." : "Loading matrix...", 330, 230, 20, GRAY);
+                DrawRectangle(250, 270, (int)((g_tiempo / 2.5f) * 300.0f), 15, RED);
+                DrawRectangleLines(250, 270, 300, 15, WHITE);
+                break;
+
+            case pantalla_menu: {
+                DrawText((g_cfg.idioma == IDIOMA_ES) ? "MENU PRINCIPAL" : "MAIN MENU", 280, 40, 32, GOLD);
+                const char *opts_es[] = { "1. Nuevo Juego", "2. Configuracion", "3. Estadisticas", "4. Controles", "5. Creditos", "6. Salir" };
+                const char *opts_en[] = { "1. New Game", "2. Settings", "3. High Scores", "4. Controls", "5. Credits", "6. Exit" };
+                for (int i = 0; i < 6; i++) {
+                    Color col = (g_opcionMenu == i) ? RED : WHITE;
+                    const char* txt = (g_cfg.idioma == IDIOMA_ES) ? opts_es[i] : opts_en[i];
+                    if (g_opcionMenu == i) {
+                        DrawText(TextFormat("-> %s", txt), 250, 110 + i * 40, 22, col);
+                    } else {
+                        DrawText(txt, 290, 110 + i * 40, 22, col);
+                    }
+                }
+                DrawText((g_cfg.idioma == IDIOMA_ES) ? "Usa Flechas ARRIBA/ABAJO para moverte y ENTER para seleccionar" : "Use UP/DOWN arrows to move, ENTER to select", 110, 400, 16, GRAY);
+                break;
+            }
+
+            case pantalla_config: {
+                DrawText((g_cfg.idioma == IDIOMA_ES) ? "CONFIGURACION" : "SETTINGS", 280, 40, 32, GOLD);
+                DrawRectangle(150, 95, 500, 240, Fade(DARKGRAY, 0.35f));
+                DrawRectangleLines(150, 95, 500, 240, PURPLE);
+
+                Color col0 = (g_opcionConfig == 0) ? RED : WHITE;
+                Color col1 = (g_opcionConfig == 1) ? RED : WHITE;
+                Color col2 = (g_opcionConfig == 2) ? RED : WHITE;
+
+                DrawText((g_cfg.idioma == IDIOMA_ES) ? "IDIOMA / LANGUAGE:" : "LANGUAGE / IDIOMA:", 180, 125, 20, col0);
+                DrawText((g_cfg.idioma == IDIOMA_ES) ? "< ESPANOL >" : "< ENGLISH >", 450, 125, 20, YELLOW);
+
+                DrawText((g_cfg.idioma == IDIOMA_ES) ? "MODO DE JUEGO:" : "GAME MODE:", 180, 185, 20, col1);
+                if (g_cfg.modo == MODO_ALEATORIO) {
+                    DrawText((g_cfg.idioma == IDIOMA_ES) ? "< ALEATORIO (10 Niveles) >" : "< RANDOM (10 Levels) >", 380, 185, 18, YELLOW);
+                } else {
+                    DrawText((g_cfg.idioma == IDIOMA_ES) ? "< HISTORIA (Niveles 1-10) >" : "< STORY (Levels 1-10) >", 380, 185, 18, GREEN);
+                }
+
+                DrawText((g_cfg.idioma == IDIOMA_ES) ? "[ GUARDAR Y VOLVER ]" : "[ SAVE & BACK ]", 290, 265, 20, col2);
+                DrawText((g_cfg.idioma == IDIOMA_ES) ? "Usa Flechas IZQ/DER para cambiar y ENTER para salir" : "Use LEFT/RIGHT arrows to switch, ENTER to save", 185, 360, 15, GRAY);
+                break;
+            }
+
+            case pantalla_registro:
+                DrawText((g_cfg.idioma == IDIOMA_ES) ? "INGRESA TU NOMBRE:" : "ENTER YOUR NAME:", 260, 140, 26, YELLOW);
+                DrawRectangle(250, 200, 300, 45, DARKGRAY);
+                DrawRectangleLines(250, 200, 300, 45, WHITE);
+                DrawText(g_juego.jugador.nombre, 270, 212, 24, RAYWHITE);
+                DrawText((g_cfg.idioma == IDIOMA_ES) ? "Presiona [ENTER] para continuar" : "Press [ENTER] to continue", 240, 280, 18, GRAY);
+                break;
+
+            case pantalla_instrucciones:
+                DrawText((g_cfg.idioma == IDIOMA_ES) ? "GUIA DE CONTROLES" : "CONTROLS GUIDE", 285, 40, 26, GOLD);
+                DrawRectangle(150, 95, 500, 265, Fade(DARKGRAY, 0.4f));
+                DrawRectangleLines(150, 95, 500, 265, ORANGE);
+
+                DrawText((g_cfg.idioma == IDIOMA_ES) ? "MOVIMIENTO:" : "MOVEMENT:", 180, 120, 18, YELLOW);
+                DrawText((g_cfg.idioma == IDIOMA_ES) ? "Flechas [ARRIBA, ABAJO, IZQ, DER]" : "Arrows [UP, DOWN, LEFT, RIGHT]", 330, 120, 16, RAYWHITE);
+
+                DrawText((g_cfg.idioma == IDIOMA_ES) ? "DISPARO:" : "SHOOTING:", 180, 180, 18, YELLOW);
+                DrawText((g_cfg.idioma == IDIOMA_ES) ? "Barra Espaciadora [SPACE]" : "Spacebar [SPACE]", 330, 180, 16, RAYWHITE);
+
+                DrawText((g_cfg.idioma == IDIOMA_ES) ? "PAUSA:" : "PAUSE:", 180, 240, 18, YELLOW);
+                DrawText((g_cfg.idioma == IDIOMA_ES) ? "Tecla [P]" : "Key [P]", 330, 240, 16, RAYWHITE);
+
+                DrawText((g_cfg.idioma == IDIOMA_ES) ? "PRESIONA [ENTER] PARA COMENZAR LA PARTIDA" : "PRESS [ENTER] TO START GAME", 200, 385, 16, GREEN);
+                break;
+
+            case pantalla_controles:
+                DrawText((g_cfg.idioma == IDIOMA_ES) ? "GUIA DE CONTROLES" : "CONTROLS GUIDE", 285, 40, 26, GOLD);
+                DrawRectangle(150, 95, 500, 265, Fade(DARKGRAY, 0.4f));
+                DrawRectangleLines(150, 95, 500, 265, ORANGE);
+
+                DrawText((g_cfg.idioma == IDIOMA_ES) ? "MOVIMIENTO:" : "MOVEMENT:", 180, 120, 18, YELLOW);
+                DrawText((g_cfg.idioma == IDIOMA_ES) ? "Flechas [ARRIBA, ABAJO, IZQ, DER]" : "Arrows [UP, DOWN, LEFT, RIGHT]", 330, 120, 16, RAYWHITE);
+
+                DrawText((g_cfg.idioma == IDIOMA_ES) ? "DISPARO:" : "SHOOTING:", 180, 180, 18, YELLOW);
+                DrawText((g_cfg.idioma == IDIOMA_ES) ? "Barra Espaciadora [SPACE]" : "Spacebar [SPACE]", 330, 180, 16, RAYWHITE);
+
+                DrawText((g_cfg.idioma == IDIOMA_ES) ? "PAUSA:" : "PAUSE:", 180, 240, 18, YELLOW);
+                DrawText((g_cfg.idioma == IDIOMA_ES) ? "Tecla [P]" : "Key [P]", 330, 240, 16, RAYWHITE);
+
+                DrawText((g_cfg.idioma == IDIOMA_ES) ? "Enter: Volver al menu" : "Enter: Back to menu", 300, 320, 16, GRAY);
+                break;
+
+            case pantalla_juego:
+                DibujarJuego(&g_juego, &g_tex, &g_cfg);
+                break;
+
+            case pantalla_pausa:
+                DibujarJuego(&g_juego, &g_tex, &g_cfg);
+                DrawRectangle(0, 0, g_anchopantalla, g_altopantalla, Fade(BLACK, 0.65f));
+                DrawText((g_cfg.idioma == IDIOMA_ES) ? "PAUSA" : "PAUSE", 350, 180, 32, YELLOW);
+                DrawText((g_cfg.idioma == IDIOMA_ES) ? "Presiona [P] o [ENTER] para continuar" : "Press [P] or [ENTER] to continue", 255, 230, 16, RAYWHITE);
+                break;
+
+            case pantalla_stats:
+                DrawText((g_cfg.idioma == IDIOMA_ES) ? "ESTADISTICAS (HIGH SCORE)" : "STATISTICS (HIGH SCORE)", 200, 100, 26, PURPLE);
+                DrawText(TextFormat((g_cfg.idioma == IDIOMA_ES) ? "CAMPEON: %s" : "CHAMPION: %s", g_max_nombre), 240, 170, 20, GOLD);
+                DrawText(TextFormat((g_cfg.idioma == IDIOMA_ES) ? "RECORD ACTUAL: %05d PTS" : "CURRENT RECORD: %05d PTS", g_max_score), 240, 210, 20, WHITE);
+                DrawText((g_cfg.idioma == IDIOMA_ES) ? "Enter: Volver al menu" : "Enter: Back to menu", 280, 300, 16, GRAY);
+                break;
+
+            case pantalla_creditos:
+                DrawText((g_cfg.idioma == IDIOMA_ES) ? "CREDITOS" : "CREDITS", 340, 100, 28, SKYBLUE);
+                DrawText("Inspirado en el clasico Mr. Do! (1982)", 235, 180, 18, RAYWHITE);
+                DrawText("Desarrollado con Raylib & C", 270, 220, 18, RAYWHITE);
+                DrawText((g_cfg.idioma == IDIOMA_ES) ? "Enter: Volver al menu" : "Enter: Back to menu", 300, 320, 16, GRAY);
+                break;
+
+            case pantalla_gameover:
+                DrawText("GAME OVER", 295, 150, 38, RED);
+                DrawText(TextFormat((g_cfg.idioma == IDIOMA_ES) ? "Puntaje Final: %d" : "Final Score: %d", g_juego.jugador.score), 310, 220, 20, WHITE);
+                DrawText((g_cfg.idioma == IDIOMA_ES) ? "Presiona [ENTER] para volver al menu" : "Press [ENTER] to return to menu", 240, 290, 16, LIGHTGRAY);
+                break;
+
+            case pantalla_victoria_final:
+                DrawText((g_cfg.idioma == IDIOMA_ES) ? "\xC2\xA1FELICITACIONES!" : "CONGRATULATIONS!", 230, 130, 36, GOLD);
+                DrawText((g_cfg.idioma == IDIOMA_ES) ? "\xC2\xA1Has completado todos los 10 niveles de la Historia!" : "You have completed all 10 Story levels!", 150, 190, 18, RAYWHITE);
+                DrawText(TextFormat((g_cfg.idioma == IDIOMA_ES) ? "Puntaje Total: %05d PTS" : "Total Score: %05d PTS", g_juego.jugador.score), 270, 240, 22, YELLOW);
+                DrawText((g_cfg.idioma == IDIOMA_ES) ? "Presiona [ENTER] para volver al menu" : "Press [ENTER] to return to menu", 240, 310, 16, LIGHTGRAY);
+                break;
+
+            case pantalla_salir:
+                DrawText((g_cfg.idioma == IDIOMA_ES) ? "\xC2\xBFDESEAS SALIR?" : "EXIT GAME?", 320, 160, 24, RED);
+                DrawText((g_cfg.idioma == IDIOMA_ES) ? "[S] Cancelar y volver al menu" : "[S] Cancel and back to menu", 280, 220, 18, WHITE);
+                DrawText((g_cfg.idioma == IDIOMA_ES) ? "[N] Confirmar salida" : "[N] Confirm exit", 280, 260, 18, WHITE);
+                break;
+        }
+    EndDrawing();
+}
+#endif // PLATFORM_WEB
+
+// =============================================================================
+// MAIN
+// =============================================================================
 int main(void) {
     const int anchopantalla = 800;
     const int altopantalla = 450;
@@ -322,6 +619,54 @@ int main(void) {
     SetTargetFPS(60);
     SetRandomSeed((unsigned int)time(NULL));
 
+#ifdef PLATFORM_WEB
+    // Inicializar estado global para la build web
+    g_sonidos = (sonidos_juego){ 0 };
+    g_sonidos.audioValido = IsAudioDeviceReady();
+    if (g_sonidos.audioValido) {
+        if (FileExists("sonido/sonidoMenu.mp3")) g_sonidos.menu = LoadMusicStream("sonido/sonidoMenu.mp3");
+        if (FileExists("sonido/itemEncontrado.wav")) g_sonidos.item = LoadSound("sonido/itemEncontrado.wav");
+        if (FileExists("sonido/sonidoDinero.wav")) g_sonidos.dinero = LoadSound("sonido/sonidoDinero.wav");
+        if (FileExists("sonido/sonidoMuerte.wav")) g_sonidos.muerte = LoadSound("sonido/sonidoMuerte.wav");
+    }
+    g_tex = (texturas_juego){ 0 };
+    if (FileExists("imagenes/mrdo.png") && FileExists("imagenes/enemigo.png") && 
+        FileExists("imagenes/manzana.png") && FileExists("imagenes/cereza.png")) {
+        g_tex.mrdo = LoadTexture("imagenes/mrdo.png");
+        g_tex.enemigo = LoadTexture("imagenes/enemigo.png");
+        g_tex.manzana = LoadTexture("imagenes/manzana.png");
+        g_tex.cereza = LoadTexture("imagenes/cereza.png");
+        g_tex.cargadas = (g_tex.mrdo.id > 0 && g_tex.enemigo.id > 0 && g_tex.manzana.id > 0 && g_tex.cereza.id > 0);
+    }
+
+    g_juego = (EstadoJuego){ 0 };
+    g_cfg = (Configuracion){ IDIOMA_ES, MODO_HISTORIA };
+    g_pantalla = pantalla_intro;
+    g_tiempo = 0.0f;
+    g_opcionMenu = 0;
+    g_opcionConfig = 0;
+    strncpy(g_max_nombre, "NADIE", 16);
+    g_max_score = CargarRecord(g_max_nombre);
+    g_debe_cerrar = false;
+    g_letterCount = 0;
+
+    // Usar el loop de Emscripten — sin ASYNCIFY, sin leaks de memoria
+    emscripten_set_main_loop(GameFrame, 0, 1);
+
+    // El cleanup no se ejecuta en la build web
+    UnloadTexture(g_tex.mrdo);
+    UnloadTexture(g_tex.enemigo);
+    UnloadTexture(g_tex.manzana);
+    UnloadTexture(g_tex.cereza);
+    UnloadMusicStream(g_sonidos.menu);
+    UnloadSound(g_sonidos.item);
+    UnloadSound(g_sonidos.dinero);
+    UnloadSound(g_sonidos.muerte);
+    CloseAudioDevice();
+    CloseWindow();
+
+#else
+    // ---- BUILD NATIVA (Windows .exe) ----
     sonidos_juego sonidos = { 0 };
     sonidos.audioValido = IsAudioDeviceReady();
     if (sonidos.audioValido) {
@@ -633,6 +978,8 @@ int main(void) {
 
     CloseAudioDevice();
     CloseWindow();
+#endif // PLATFORM_WEB
+
     return 0;
 }
 

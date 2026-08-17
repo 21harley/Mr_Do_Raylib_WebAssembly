@@ -3,8 +3,22 @@ echo ====================================================
 echo Pipeline de Compilacion WebAssembly (Emscripten)
 echo ====================================================
 
-REM FASE 1: Verificacion de Entorno
-REM Se asume que el usuario ejecutara o ya ejecuto su entorno EMSDK (ej. emsdk_env.bat)
+REM FASE 1: Verificacion y Carga de Entorno EMSDK
+where emcc >nul 2>nul
+if %errorlevel% neq 0 (
+    echo [INFO] 'emcc' no esta en el PATH. Intentando cargar entorno EMSDK...
+    if exist "C:\raylib\emsdk\emsdk_env.bat" (
+        echo [INFO] Cargando EMSDK desde C:\raylib\emsdk...
+        call "C:\raylib\emsdk\emsdk_env.bat" >nul 2>&1
+    ) else if exist "C:\emsdk\emsdk_env.bat" (
+        echo [INFO] Cargando EMSDK desde C:\emsdk...
+        call "C:\emsdk\emsdk_env.bat" >nul 2>&1
+    ) else if exist "%USERPROFILE%\emsdk\emsdk_env.bat" (
+        echo [INFO] Cargando EMSDK desde %USERPROFILE%\emsdk...
+        call "%USERPROFILE%\emsdk\emsdk_env.bat" >nul 2>&1
+    )
+)
+
 where emcc >nul 2>nul
 if %errorlevel% neq 0 (
     echo [ERROR] No se encuentra 'emcc' en el sistema.
@@ -18,15 +32,15 @@ echo [INFO] Iniciando transpilacion cruzada (C a WebAssembly)...
 
 REM FASE 2: Transpilacion Cruzada
 REM Se compila hacia juego.js para permitir la integracion en nuestro index.html
-emcc main.c -o juego.js -O2 ^
+call emcc main.c -o juego.js -O3 ^
     -I raylib-web/include ^
     -L raylib-web/lib ^
     -lraylib ^
     -s USE_GLFW=3 ^
     -s FORCE_FILESYSTEM=1 ^
-    -s ASYNCIFY ^
     -s ALLOW_MEMORY_GROWTH=1 ^
     -s INITIAL_MEMORY=134217728 ^
+    -s MAXIMUM_MEMORY=268435456 ^
     --preload-file imagenes ^
     --preload-file sonido
 
