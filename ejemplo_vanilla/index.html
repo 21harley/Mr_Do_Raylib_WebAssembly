@@ -5,83 +5,172 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pipeline WebAssembly (Raylib)</title>
     <style>
-        body { 
-            margin: 0; 
-            overflow: hidden; 
-            background-color: #1a1a1a; 
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
-            height: 100vh; 
-            color: white;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        /* ============================================================
+         * SISTEMA DE DISEÑO — Portafolio Mr. Do!
+         * Paleta dark mode monocromática con sesgo azul-violeta
+         * Tipografía: Courier New (stack monospace nativo)
+         * ============================================================ */
+        :root {
+            --color-background-cero:  #0f1014; /* Fondo principal del body         */
+            --color-background-one:   #1b1d25; /* Bordes de sección                */
+            --color-background-two:   #444856; /* Elementos intermedios            */
+            --color-background-three: #dfe3ff; /* Texto principal / acentos        */
+            --color-background-four:  #929ab1; /* Scrollbar thumb / texto suave    */
+            --color-background-five:  #2c303a; /* Elementos secundarios UI         */
+
+            --font-mono: 'Courier New', Courier, monospace;
         }
+
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: var(--color-background-cero);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            color: var(--color-background-three);
+            font-family: var(--font-mono);
+        }
+
+        /* Scrollbar personalizada (navegadores webkit) */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: var(--color-background-cero);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--color-background-four);
+            border-radius: 3px;
+        }
+
         #game-container {
             position: relative;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
-            border-radius: 8px;
+            width: 800px;
+            height: 450px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.9),
+                        0 0 0 1px var(--color-background-one);
+            border-radius: 6px;
             overflow: hidden;
-            background-color: #000;
+            background-color: var(--color-background-cero);
+            border: 1px solid var(--color-background-one);
         }
-        canvas { 
+
+        canvas {
             display: block;
+            width: 800px;
+            height: 450px;
             outline: none;
         }
+
+        /* ---- Mensaje de carga ---- */
         #loading {
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            font-size: 1.2rem;
+            font-size: 1rem;
+            color: var(--color-background-four);
+            letter-spacing: 0.08em;
             pointer-events: none;
             z-index: 5;
         }
+
+        /* ---- Overlay de inicio / desbloqueo de audio ---- */
         #start-overlay {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.85);
+            background: rgba(15, 16, 20, 0.92); /* --color-background-cero con opacidad */
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             z-index: 100;
+            gap: 1.5rem;
         }
+
         .start-text {
-            margin-bottom: 20px;
-            font-size: 1.2rem;
+            font-size: 1rem;
             text-align: center;
-            color: #ccc;
-            line-height: 1.5;
+            color: var(--color-background-four);
+            line-height: 1.7;
+            letter-spacing: 0.04em;
         }
+
         #start-btn {
-            background-color: #f39c12;
-            color: white;
-            padding: 15px 30px;
-            border: none;
-            border-radius: 5px;
-            font-size: 1.2rem;
+            background-color: var(--color-background-five);
+            color: var(--color-background-three);
+            padding: 12px 28px;
+            border: 1px solid var(--color-background-two);
+            border-radius: 4px;
+            font-size: 1rem;
+            font-family: var(--font-mono);
             font-weight: bold;
             cursor: pointer;
-            transition: background 0.3s, transform 0.2s;
+            letter-spacing: 0.06em;
+            transition: background-color 0.25s ease, border-color 0.25s ease, transform 0.15s ease;
         }
+
         #start-btn:hover {
-            background-color: #e67e22;
-            transform: scale(1.05);
+            background-color: var(--color-background-two);
+            border-color: var(--color-background-three);
+            transform: scale(1.03);
+        }
+
+        #start-btn:active {
+            transform: scale(0.98);
+        }
+
+        /* ---- Aviso de dispositivo móvil ---- */
+        #mobile-warning {
+            display: none;
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: var(--color-background-cero);
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 200;
+            text-align: center;
+            padding: 20px;
+            box-sizing: border-box;
+            gap: 1rem;
+        }
+
+        #mobile-warning h2 {
+            color: rgba(231, 76, 60, 0.8);
+            font-family: var(--font-mono);
+            font-size: 1.2rem;
+            letter-spacing: 0.06em;
+            margin: 0;
+        }
+
+        #mobile-warning p {
+            font-size: 1rem;
+            line-height: 1.6;
+            color: var(--color-background-four);
+            margin: 0;
         }
     </style>
 </head>
 <body>
     <div id="game-container">
-        <div id="mobile-warning" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #1a1a1a; flex-direction: column; justify-content: center; align-items: center; z-index: 200; text-align: center; padding: 20px; box-sizing: border-box;">
-            <h2 style="color: #e74c3c;">Dispositivo Móvil Detectado</h2>
-            <p style="font-size: 1.2rem; line-height: 1.5; color: #ccc;">Lo sentimos, este juego requiere teclado y no está optimizado para dispositivos táctiles.<br><br>Por favor, ingresa desde una PC.</p>
+        <div id="mobile-warning">
+            <h2>Dispositivo Móvil Detectado</h2>
+            <p>Lo sentimos, este juego requiere teclado y no está optimizado para dispositivos táctiles.<br><br>Por favor, ingresa desde una PC.</p>
         </div>
 
         <div id="loading">Cargando Motor WebAssembly...</div>
-        
+
         <div id="start-overlay">
             <div class="start-text">Para escuchar los efectos y la música del juego,<br>el navegador requiere tu permiso.</div>
             <button id="start-btn">Activar Sonido y Jugar</button>
@@ -100,10 +189,10 @@
             document.getElementById('start-overlay').style.display = 'none';
             document.getElementById('loading').style.display = 'none';
         } else {
-            var Module = { 
+            var Module = {
                 canvas: document.getElementById('canvas'),
                 onRuntimeInitialized: function() {
-                    // Solución al bug de Raylib Web Audio: 
+                    // Solución al bug de Raylib Web Audio:
                     // Exponer HEAPF32 global dentro de Module para que la API de audio lo encuentre
                     if (typeof HEAPF32 !== 'undefined') Module.HEAPF32 = HEAPF32;
 
@@ -116,14 +205,14 @@
                 })(),
                 printErr: function(text) { console.error(text); }
             };
-            
+
             // Botón de activación de sonido
             document.getElementById('start-btn').addEventListener('click', function() {
                 document.getElementById('start-overlay').style.display = 'none';
                 // Enfocar el canvas para que reciba las entradas de teclado inmediatamente
                 document.getElementById('canvas').focus();
                 console.log("Interacción de usuario detectada. Iniciando descarga del motor WASM...");
-                
+
                 // Cargar el script del juego dinámicamente ahora que tenemos interacción
                 var script = document.createElement('script');
                 script.src = 'juego.js';
