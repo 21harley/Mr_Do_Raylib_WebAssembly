@@ -1021,10 +1021,16 @@ void GenerarParticulasExcavacion(EstadoJuego *j, int gx, int gy) {
 bool BFSCaminoLibre(EstadoJuego *j, int origenX, int origenY, int destX, int destY, int *pasoX, int *pasoY) {
     if (origenX == destX && origenY == destY) return false;
 
-    bool visitado[FILAS][COLUMNAS] = { 0 };
-    Punto padre[FILAS][COLUMNAS];
-    Punto cola[FILAS * COLUMNAS];
+    // Arrays estáticos para evitar presión en el stack de WASM (se llama hasta 10 veces/frame)
+    static bool visitado[FILAS][COLUMNAS];
+    static Punto padre[FILAS][COLUMNAS];
+    static Punto cola[FILAS * COLUMNAS];
     int frente = 0, final = 0;
+
+    // Limpiar sólo lo necesario
+    for (int f = 0; f < FILAS; f++)
+        for (int c = 0; c < COLUMNAS; c++)
+            visitado[f][c] = false;
 
     cola[final++] = (Punto){ origenX, origenY };
     visitado[origenY][origenX] = true;
@@ -1090,7 +1096,8 @@ void CalcularObjetivoEnemigo(EstadoJuego *j, int idEnemigo, int *targetX, int *t
 
     if (tx < 0 || ty < 0 || (ex == tx && ey == ty)) {
         int minVisitas = 999999;
-        Punto mejoresPuntos[FILAS * COLUMNAS];
+        // Array estático para evitar presión en el stack de WASM (se llama 5×60 veces/seg)
+        static Punto mejoresPuntos[FILAS * COLUMNAS];
         int numMejores = 0;
 
         for (int f = 0; f < FILAS; f++) {
@@ -1595,12 +1602,8 @@ void ReaparecerEnemigo(EstadoJuego *j, int i) {
     j->enemigos[i].targetExploracionX = -1;
     j->enemigos[i].targetExploracionY = -1;
     j->enemigos[i].timerRespawn = 0.0f;
-
-    for (int f = 0; f < FILAS; f++) {
-        for (int c = 0; c < COLUMNAS; c++) {
-            j->visitadoPorEnemigos[f][c] = 0;
-        }
-    }
+    // NOTA: visitadoPorEnemigos se limpia solo en IniciarNivel, no en cada respawn
+    // para evitar acumulación de trabajo innecesario cada vez que un enemigo reaparece.
 }
 
 void IniciarNivel(EstadoJuego *j, int nivel, ModoJuego modo) {
@@ -1698,7 +1701,8 @@ void ActualizarJuego(EstadoJuego *j, estadopantalla *pantalla, sonidos_juego *so
     }
 
     for (int i = 0; i < j->numEnemigos; i++) {
-        if (!j->enemigos[i].vivo) {
+        // Solo decrementar si está muerto Y fuera de juego (evitar doble decremento)
+        if (!j->enemigos[i].vivo && !j->enemigos[i].enJuego) {
             j->enemigos[i].timerRespawn -= dt;
             if (j->enemigos[i].timerRespawn <= 0.0f) {
                 ReaparecerEnemigo(j, i);
